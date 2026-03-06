@@ -11,6 +11,7 @@ from engine.state import (
     CliffhangerAnalysis,
     EmotionalArc,
     EpisodePlanner,
+    EpisodeScripts,
     OptimizationReport,
     RetentionAnalysis,
 )
@@ -59,6 +60,7 @@ class AnalyzeResponse(BaseModel):
     story_idea: str
     revisions_completed: int
     episode_planner: EpisodePlanner
+    episode_scripts: EpisodeScripts
     emotional_arc: EmotionalArc
     retention_analysis: RetentionAnalysis
     cliffhanger_analysis: CliffhangerAnalysis

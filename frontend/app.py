@@ -224,6 +224,27 @@ def render_episode_plan(data: dict[str, Any]) -> None:
             st.caption(f"Target word count: {ep.get('estimated_word_count', 225)}")
 
 
+def render_full_story(data: dict[str, Any]) -> None:
+    """Render all episode scripts stitched into one continuous flowing narrative."""
+    st.subheader("Full Story")
+    scripts_data = data.get("episode_scripts", {})
+    if not scripts_data:
+        st.info("No story data available.")
+        return
+
+    scripts = sorted(
+        scripts_data.get("scripts", []),
+        key=lambda s: s["episode_number"],
+    )
+    if not scripts:
+        st.info("No story data available.")
+        return
+
+    full_text = "\n\n".join(s["script"] for s in scripts)
+    st.markdown(full_text)
+    st.caption(f"Total words: {scripts_data.get('total_word_count', 'N/A')}")
+
+
 def render_emotion_progression(data: dict[str, Any]) -> None:
     st.subheader("Emotional Progression")
     arc = data.get("emotional_arc", {})
@@ -470,6 +491,7 @@ def main() -> None:
 
     render_engagement_summary(response)
     render_episode_plan(response)
+    render_full_story(response)
     render_emotion_progression(response)
     render_cliffhanger_scores(response)
     render_retention_risk(response)
