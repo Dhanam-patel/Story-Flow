@@ -69,4 +69,5 @@ def get_model(
         credentials=credentials,
         project=project_id,
         location=project_location,
+        # include_thoughts=True,
     )

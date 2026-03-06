@@ -155,6 +155,46 @@ Returns a JSON object with:
 
 Each analysis run is persisted to the `analysis_runs` table in PostgreSQL.
 
+### `POST /episodic-intelligence/analyze/stream`
+
+Streaming variant that emits [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) (SSE) as each LangGraph node starts and completes. Same request body as `/analyze`. The Streamlit frontend uses this endpoint by default.
+
+**SSE event types:**
+
+| Event       | When                             | Payload                                              |
+|-------------|----------------------------------|------------------------------------------------------|
+| `progress`  | A graph node starts or ends      | `{"node": "<name>", "status": "started\|completed"}` |
+| `thinking`  | LLM emits a reasoning/thinking chunk | `{"node": "<name>", "text": "<thinking content>"}` |
+| `complete`  | Pipeline finished                | Full `AnalyzeResponse` JSON                          |
+| `error`     | Pipeline failed                  | `{"detail": "<error message>"}`                      |
+
+**Example SSE stream:**
+
+```
+event: progress
+data: {"node": "story_decomposer", "status": "started"}
+
+event: thinking
+data: {"node": "story_decomposer", "text": "Let me analyze this story concept..."}
+
+event: progress
+data: {"node": "story_decomposer", "status": "completed"}
+
+event: progress
+data: {"node": "emotional_arc", "status": "started"}
+
+event: progress
+data: {"node": "retention_risk", "status": "started"}
+
+event: progress
+data: {"node": "cliffhanger_scorer", "status": "started"}
+
+...
+
+event: complete
+data: {"run_id": "...", "episode_plan": {...}, ...}
+```
+
 ### Interactive docs
 
 OpenAPI docs are available at `http://localhost:8000/docs` when the server is running.

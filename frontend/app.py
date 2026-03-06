@@ -3,9 +3,30 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any
-from urllib import error, request
 
+import requests
 import streamlit as st
+
+# ---------------------------------------------------------------------------
+# Node display names and ordering for progress tracking
+# ---------------------------------------------------------------------------
+
+_NODE_LABELS: dict[str, str] = {
+    "story_decomposer": "Story Decomposer",
+    "emotional_arc": "Emotional Arc Analyzer",
+    "retention_risk": "Retention Risk Predictor",
+    "cliffhanger_scorer": "Cliffhanger Scorer",
+    "optimizer": "Optimizer",
+}
+
+# Ordered list for progress calculation (5 nodes per revision pass).
+_NODE_ORDER: list[str] = [
+    "story_decomposer",
+    "emotional_arc",
+    "retention_risk",
+    "cliffhanger_scorer",
+    "optimizer",
+]
 
 
 @dataclass
@@ -14,26 +35,144 @@ class ApiConfig:
     timeout_seconds: int
 
 
-def call_analysis_api(config: ApiConfig, payload: dict[str, Any]) -> dict[str, Any]:
-    endpoint = f"{config.base_url.rstrip('/')}/episodic-intelligence/analyze"
-    body = json.dumps(payload).encode("utf-8")
+# ---------------------------------------------------------------------------
+# SSE streaming client
+# ---------------------------------------------------------------------------
 
-    req = request.Request(
-        endpoint,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
 
-    try:
-        with request.urlopen(req, timeout=config.timeout_seconds) as response:
-            raw = response.read().decode("utf-8")
-            return json.loads(raw)
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8") if exc.fp else exc.reason
-        raise RuntimeError(f"HTTP {exc.code}: {details}") from exc
-    except error.URLError as exc:
-        raise RuntimeError(f"Could not connect to backend: {exc.reason}") from exc
+def stream_analysis(
+    config: ApiConfig, payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Call the streaming endpoint and render real-time progress.
+
+    Returns the final analysis response dict, or None on error.
+    """
+    url = f"{config.base_url.rstrip('/')}/episodic-intelligence/analyze/stream"
+
+    max_revisions = payload.get("max_revisions", 2)
+    nodes_per_pass = len(_NODE_ORDER)
+    total_nodes = nodes_per_pass * max_revisions
+
+    completed_count = 0
+    current_revision = 1
+    final_result: dict[str, Any] | None = None
+
+    # Accumulate thinking text per node so we can render it in expanders.
+    thinking_buffers: dict[str, list[str]] = {}
+    # Map of node key -> Streamlit container for live-updating thinking text.
+    thinking_containers: dict[str, Any] = {}
+
+    progress_bar = st.progress(0.0)
+
+    with st.status(
+        "Running episodic intelligence analysis...", expanded=True
+    ) as status:
+        try:
+            with requests.post(
+                url, json=payload, stream=True, timeout=config.timeout_seconds
+            ) as resp:
+                resp.raise_for_status()
+
+                current_event: str | None = None
+
+                for raw_line in resp.iter_lines(decode_unicode=True):
+                    if raw_line is None:
+                        continue
+                    line = raw_line.strip()
+
+                    if not line:
+                        current_event = None
+                        continue
+
+                    if line.startswith("event:"):
+                        current_event = line[len("event:") :].strip()
+                        continue
+
+                    if not line.startswith("data:"):
+                        continue
+
+                    data = json.loads(line[len("data:") :].strip())
+
+                    if current_event == "progress":
+                        node = data.get("node", "")
+                        node_status = data.get("status", "")
+                        label = _NODE_LABELS.get(node, node)
+
+                        if node_status == "started":
+                            st.write(f"Running **{label}**...")
+                        elif node_status == "completed":
+                            completed_count += 1
+                            pct = min(completed_count / total_nodes, 1.0)
+                            progress_bar.progress(pct)
+
+                            # Detect revision boundary (optimizer completed).
+                            if node == "optimizer":
+                                if current_revision < max_revisions:
+                                    current_revision += 1
+                                    st.write(
+                                        f"--- Revision {current_revision}"
+                                        f"/{max_revisions} ---"
+                                    )
+
+                    elif current_event == "thinking":
+                        node = data.get("node", "unknown")
+                        text = data.get("text", "")
+                        if text:
+                            label = _NODE_LABELS.get(node, node)
+                            key = f"{node}_{current_revision}"
+
+                            if key not in thinking_buffers:
+                                thinking_buffers[key] = []
+                                # Create an expander for this node's thinking.
+                                expander = st.expander(
+                                    f"Thinking: {label}", expanded=True
+                                )
+                                thinking_containers[key] = expander.empty()
+
+                            thinking_buffers[key].append(text)
+                            # Update the container with all accumulated text.
+                            thinking_containers[key].code(
+                                "".join(thinking_buffers[key]),
+                                language=None,
+                            )
+
+                    elif current_event == "complete":
+                        final_result = data
+
+                    elif current_event == "error":
+                        st.error(data.get("detail", "Unknown pipeline error."))
+                        status.update(
+                            label="Analysis failed", state="error", expanded=True
+                        )
+                        progress_bar.empty()
+                        return None
+
+        except requests.ConnectionError:
+            st.error(
+                f"Could not connect to backend at {config.base_url}. "
+                "Is the server running?"
+            )
+            status.update(label="Connection failed", state="error", expanded=True)
+            progress_bar.empty()
+            return None
+        except requests.HTTPError as exc:
+            st.error(f"Backend returned HTTP {exc.response.status_code}.")
+            status.update(label="Analysis failed", state="error", expanded=True)
+            progress_bar.empty()
+            return None
+        except requests.Timeout:
+            st.error(
+                f"Request timed out after {config.timeout_seconds}s. "
+                "Try increasing the timeout in the sidebar."
+            )
+            status.update(label="Timed out", state="error", expanded=True)
+            progress_bar.empty()
+            return None
+
+        progress_bar.progress(1.0)
+        status.update(label="Analysis complete!", state="complete", expanded=False)
+
+    return final_result
 
 
 # ---------------------------------------------------------------------------
@@ -309,14 +448,10 @@ def main() -> None:
 
     config = ApiConfig(base_url=base_url, timeout_seconds=timeout_seconds)
 
-    with st.spinner(
-        "Running episodic intelligence analysis (this may take 1-3 minutes)..."
-    ):
-        try:
-            response = call_analysis_api(config, payload)
-        except RuntimeError as exc:
-            st.error(str(exc))
-            return
+    response = stream_analysis(config, payload)
+
+    if response is None:
+        return
 
     st.success(f"Analysis complete. Run ID: {response.get('run_id', 'n/a')}")
 

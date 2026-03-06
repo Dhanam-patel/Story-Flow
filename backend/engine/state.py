@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import operator
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
-
 
 # ---------------------------------------------------------------------------
 # Pydantic models — used for structured LLM output
