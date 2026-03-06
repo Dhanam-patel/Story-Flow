@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Activity, FileJson, Sparkles } from "lucide-react";
 import StoryForm from "../components/StoryForm";
@@ -15,33 +15,15 @@ export default function DashboardPage() {
   const [max_revisions, setMaxRevisions] = useState(3);
 
   const {
-    backendBaseUrl,
     isStreaming,
     activeNode,
     rawThoughts,
     analysisData,
     error,
+    completedSteps,
+    totalSteps,
     startStream,
   } = useStoryFlowStream();
-
-  const formData = useMemo(
-    () => ({
-      story_idea,
-      genre,
-      tone,
-      target_audience,
-      episode_count_preference,
-      max_revisions,
-    }),
-    [
-      story_idea,
-      genre,
-      tone,
-      target_audience,
-      episode_count_preference,
-      max_revisions,
-    ]
-  );
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -55,6 +37,8 @@ export default function DashboardPage() {
       max_revisions,
     });
   };
+
+  const progressPercent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
   return (
     <main className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
@@ -93,6 +77,7 @@ export default function DashboardPage() {
             maxRevisions={max_revisions}
             setMaxRevisions={setMaxRevisions}
             onSubmit={handleSubmit}
+            isStreaming={isStreaming}
           />
         </div>
       </motion.aside>
@@ -112,23 +97,49 @@ export default function DashboardPage() {
               Ready when you are
             </h3>
             <p className="mt-2 max-w-xl text-sm text-slate-300">
-              Connected to <span className="font-semibold text-cyan-200">{backendBaseUrl}</span>. Submit your story to stream real analysis events.
+              Fill in your story details and hit <span className="font-semibold text-cyan-200">Run Episodic Analysis</span> to generate a full episode blueprint with scripts, emotional arcs, and retention insights.
             </p>
           </div>
         )}
 
         {isStreaming && (
           <div className="min-h-[420px] space-y-5">
-            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
-              <Activity className="h-5 w-5 animate-pulse text-cyan-300" />
-              <div>
-                <p className="text-xs uppercase tracking-[0.15em] text-slate-400">
-                  Currently Thinking
-                </p>
-                <p className="font-medium text-white">{activeNode || "..."}</p>
+            {/* ---- Step progress + active node ---- */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Activity className="h-5 w-5 animate-pulse text-cyan-300" />
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.15em] text-slate-400">
+                      Processing
+                    </p>
+                    <p className="font-medium text-white">
+                      {activeNode || "Initializing..."}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400">
+                    Step {completedSteps} of {totalSteps}
+                  </p>
+                  <p className="text-sm font-semibold text-cyan-200">
+                    {progressPercent}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ type: "spring", bounce: 0.15, duration: 0.8 }}
+                />
               </div>
             </div>
 
+            {/* ---- Live Notes ---- */}
             <div className="rounded-xl border border-white/10 bg-black/30 p-4">
               <p className="mb-2 text-xs uppercase tracking-[0.15em] text-slate-400">
                 Live Notes
@@ -149,15 +160,6 @@ export default function DashboardPage() {
             {error}
           </div>
         )}
-
-        <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
-          <p className="text-xs uppercase tracking-[0.15em] text-slate-400">
-            Current Input Snapshot
-          </p>
-          <pre className="mt-2 max-h-40 overflow-auto text-xs text-slate-300">
-            {JSON.stringify(formData, null, 2)}
-          </pre>
-        </div>
       </motion.section>
     </main>
   );

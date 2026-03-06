@@ -35,6 +35,7 @@ export default function StoryForm({
   maxRevisions,
   setMaxRevisions,
   onSubmit,
+  isStreaming = false,
 }) {
   return (
     <form onSubmit={onSubmit} className="flex h-full flex-col gap-4">
@@ -125,13 +126,27 @@ export default function StoryForm({
       </div>
 
       <motion.button
-        whileHover={{ y: -1, scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        whileHover={isStreaming ? {} : { y: -1, scale: 1.01 }}
+        whileTap={isStreaming ? {} : { scale: 0.99 }}
         type="submit"
-        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200/30 bg-gradient-to-r from-cyan-400/30 via-blue-400/30 to-purple-400/30 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 backdrop-blur-md transition hover:border-cyan-100/60 hover:shadow-cyan-700/30"
+        disabled={isStreaming}
+        className={`mt-2 inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-lg backdrop-blur-md transition ${
+          isStreaming
+            ? "cursor-not-allowed border-white/10 bg-white/5 text-white/40 shadow-none"
+            : "border-cyan-200/30 bg-gradient-to-r from-cyan-400/30 via-blue-400/30 to-purple-400/30 text-white shadow-cyan-900/30 hover:border-cyan-100/60 hover:shadow-cyan-700/30"
+        }`}
       >
-        Run Episodic Analysis
-        <SendHorizontal className="h-4 w-4" />
+        {isStreaming ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-cyan-300" />
+            Generating...
+          </>
+        ) : (
+          <>
+            Run Episodic Analysis
+            <SendHorizontal className="h-4 w-4" />
+          </>
+        )}
       </motion.button>
     </form>
   );

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     google_cloud_location: str = "us-central1"
     vertex_generation_model: str = "gemini-2.5-flash"
     google_genai_use_vertex: str = ""
+    gcp_service_account_json: str = ""
+
+    static_dir: str = ""
 
     @property
     def sync_database_url(self) -> str:

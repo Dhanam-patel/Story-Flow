@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Eye, Flame, Sparkles, Zap } from "lucide-react";
 import EpisodeTimeline from "./EpisodeTimeline";
+import EpisodeScripts from "./EpisodeScripts";
 import OptimizationReport from "./OptimizationReport";
 
 const containerVariants = {
@@ -34,7 +35,7 @@ function Panel({ title, children }) {
   return (
     <motion.section
       variants={itemVariants}
-      className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-lg"
+      className="rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-lg"
     >
       <h3 className="text-base font-semibold text-white">{title}</h3>
       <div className="mt-3">{children}</div>
@@ -48,24 +49,29 @@ function EmotionalArcPanel({ emotionalArc = {} }) {
 
   return (
     <Panel title="Emotional Arc">
-      <div className="mb-3 rounded-lg border border-blue-300/20 bg-blue-300/10 px-3 py-2">
-        <p className="text-[11px] uppercase tracking-[0.13em] text-blue-100/75">Coherence Score</p>
-        <p className="text-3xl font-extrabold text-white">
-          {typeof coherence === "number" ? coherence.toFixed(1) : "--"}
-        </p>
+      <div className="mb-4 inline-flex items-baseline gap-3 rounded-lg border border-blue-300/20 bg-blue-300/10 px-4 py-2.5">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.13em] text-blue-100/75">Coherence Score</p>
+          <p className="text-3xl font-extrabold text-white">
+            {typeof coherence === "number" ? coherence.toFixed(1) : "--"}
+          </p>
+        </div>
       </div>
 
       {beats.length === 0 ? (
         <p className="text-sm text-white/60">No emotional beats available.</p>
       ) : (
-        <ul className="space-y-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {beats.map((beat, index) => (
-            <li key={`emotion-${index}`} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/80">
+            <div
+              key={`emotion-${beat?.episode_number ?? index}`}
+              className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/80"
+            >
               {typeof beat === "string" ? (
                 beat
               ) : (
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/60">
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/50">
                     Episode {beat?.episode_number ?? index + 1}
                   </p>
                   <p className="font-medium text-white/90">
@@ -76,9 +82,9 @@ function EmotionalArcPanel({ emotionalArc = {} }) {
                   </p>
                 </div>
               )}
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </Panel>
   );
@@ -92,17 +98,19 @@ function RetentionRiskPanel({ retentionAnalysis = {} }) {
 
   return (
     <Panel title="Retention Risk">
-      <div className="mb-3 rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-amber-100/80">
-          Overall Risk
-        </p>
-        <p className="text-lg font-bold text-white">{overallRisk}</p>
+      <div className="mb-4 inline-flex items-baseline gap-3 rounded-lg border border-amber-300/20 bg-amber-300/10 px-4 py-2.5">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-amber-100/80">
+            Overall Risk
+          </p>
+          <p className="text-lg font-bold text-white">{overallRisk}</p>
+        </div>
       </div>
 
       {episodes.length === 0 ? (
         <p className="text-sm text-white/60">No retention analysis returned.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {episodes.map((episodeRisk, index) => {
             const retentionRaw = episodeRisk?.retention_score;
             const retentionScore = Number.isFinite(Number(retentionRaw))
@@ -114,9 +122,12 @@ function RetentionRiskPanel({ retentionAnalysis = {} }) {
               : [];
 
             return (
-              <div key={`risk-${index}`} className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <div
+                key={`risk-${episodeRisk?.episode_number ?? index}`}
+                className="rounded-lg border border-white/10 bg-black/20 p-4"
+              >
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/60">
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/50">
                     Episode {episodeRisk?.episode_number ?? index + 1}
                   </p>
                   <p className="text-sm font-semibold text-rose-200">Risk {riskScore}%</p>
@@ -132,18 +143,18 @@ function RetentionRiskPanel({ retentionAnalysis = {} }) {
                 </div>
 
                 <p className="mt-2 text-xs text-white/65">
-                  Retention Score: {retentionScore}%
+                  Retention: {retentionScore}%
                 </p>
                 {episodeRisk?.risk_zone && (
                   <p className="mt-1 text-xs text-amber-200/85">
-                    Risk Zone: {episodeRisk.risk_zone}
+                    Zone: {episodeRisk.risk_zone}
                   </p>
                 )}
 
                 {fixes.length > 0 && (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/80">
                     {fixes.map((fix, fixIndex) => (
-                      <li key={`fix-${index}-${fixIndex}`}>{fix}</li>
+                      <li key={`fix-${episodeRisk?.episode_number ?? index}-${fixIndex}`}>{fix}</li>
                     ))}
                   </ul>
                 )}
@@ -176,22 +187,27 @@ function CliffhangerPanel({ cliffhangerAnalysis = {} }) {
 
   return (
     <Panel title="Cliffhanger Scores">
-      <div className="mb-3 rounded-lg border border-rose-300/20 bg-rose-300/10 px-3 py-2">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-rose-100/80">
-          Average Score
-        </p>
-        <p className="text-lg font-bold text-white">
-          {typeof averageScore === "number" ? averageScore.toFixed(1) : "--"}
-        </p>
+      <div className="mb-4 inline-flex items-baseline gap-3 rounded-lg border border-rose-300/20 bg-rose-300/10 px-4 py-2.5">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-rose-100/80">
+            Average Score
+          </p>
+          <p className="text-lg font-bold text-white">
+            {typeof averageScore === "number" ? averageScore.toFixed(1) : "--"}
+          </p>
+        </div>
       </div>
 
       {episodes.length === 0 ? (
         <p className="text-sm text-white/60">No cliffhanger breakdown available.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {episodes.map((episode, index) => (
-            <div key={`cliff-${index}`} className="rounded-lg border border-white/10 bg-black/20 p-3">
-              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/60">
+            <div
+              key={`cliff-${episode?.episode_number ?? index}`}
+              className="rounded-lg border border-white/10 bg-black/20 p-4"
+            >
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/50">
                 Episode {episode?.episode_number ?? index + 1}
               </p>
               <div className="space-y-2">
@@ -238,6 +254,7 @@ export default function ResultsDashboard({ analysisData }) {
   const episodePlan = Array.isArray(analysisData?.episode_plan)
     ? analysisData.episode_plan
     : [];
+  const episodeScripts = analysisData?.episode_scripts || null;
   const emotionalArc = analysisData?.emotional_arc || {};
   const retentionAnalysis = analysisData?.retention_analysis || {};
   const cliffhangerAnalysis = analysisData?.cliffhanger_analysis || {};
@@ -250,6 +267,7 @@ export default function ResultsDashboard({ analysisData }) {
       animate="visible"
       className="space-y-5"
     >
+      {/* ---- Story Brief ---- */}
       <motion.section
         variants={itemVariants}
         className="rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-lg"
@@ -268,23 +286,28 @@ export default function ResultsDashboard({ analysisData }) {
         </div>
 
         <p className="mt-3 text-lg italic leading-relaxed text-white/90 sm:text-xl">
-          "{storyIdea}"
+          &ldquo;{storyIdea}&rdquo;
         </p>
       </motion.section>
 
+      {/* ---- Full Episode Scripts (top, all expanded) ---- */}
+      {episodeScripts && (
+        <motion.div variants={itemVariants}>
+          <EpisodeScripts episodeScripts={episodeScripts} />
+        </motion.div>
+      )}
+
+      {/* ---- Episode Timeline ---- */}
       <motion.div variants={itemVariants}>
         <EpisodeTimeline episodePlan={episodePlan} />
       </motion.div>
 
-      <motion.section
-        variants={itemVariants}
-        className="grid grid-cols-1 gap-4 lg:grid-cols-3"
-      >
-        <EmotionalArcPanel emotionalArc={emotionalArc} />
-        <RetentionRiskPanel retentionAnalysis={retentionAnalysis} />
-        <CliffhangerPanel cliffhangerAnalysis={cliffhangerAnalysis} />
-      </motion.section>
+      {/* ---- Analysis Panels (stacked full-width) ---- */}
+      <EmotionalArcPanel emotionalArc={emotionalArc} />
+      <RetentionRiskPanel retentionAnalysis={retentionAnalysis} />
+      <CliffhangerPanel cliffhangerAnalysis={cliffhangerAnalysis} />
 
+      {/* ---- Optimization Report ---- */}
       <OptimizationReport
         optimizationReport={optimizationReport}
         variants={itemVariants}

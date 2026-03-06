@@ -1,5 +1,27 @@
-__pycache__
-.env
-.ruff_cache
+# Version control
+.git
+.gitignore
+
+# Python
 .venv
+__pycache__
+*.pyc
+.ruff_cache
+
+# Node
 node_modules
+frontend/dist
+
+# Environment files (inject at runtime)
+.env
+backend/.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

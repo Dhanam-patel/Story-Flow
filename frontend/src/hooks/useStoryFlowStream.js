@@ -1,16 +1,53 @@
 import { useMemo, useRef, useState } from "react";
 import { normalizeAnalyzePayload } from "../utils/normalizeAnalyzePayload";
 
+const NODE_LABELS = {
+  input_classifier: "Classifying Input",
+  story_expander: "Expanding Story",
+  story_validator: "Validating Story",
+  episode_planner: "Planning Episodes",
+  episode_scripter: "Writing Scripts",
+  emotional_arc_scorer: "Scoring Emotional Arc",
+  cliffhanger_strength_scorer: "Scoring Cliffhangers",
+  retention_risk_analyzer: "Analyzing Retention Risk",
+  final_validator: "Final Validation",
+  optimizer: "Optimizing",
+};
+
+const NODE_ORDER = [
+  "input_classifier",
+  "story_expander",
+  "story_validator",
+  "episode_planner",
+  "episode_scripter",
+  "emotional_arc_scorer",
+  "cliffhanger_strength_scorer",
+  "retention_risk_analyzer",
+  "final_validator",
+  "optimizer",
+];
+
+const TOTAL_STEPS = NODE_ORDER.length;
+
+function friendlyLabel(rawNode) {
+  if (!rawNode) return "";
+  // Strip a trailing " (done)" if the raw value carried one
+  const key = rawNode.replace(/\s*\(done\)$/i, "").trim();
+  return NODE_LABELS[key] || key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function useStoryFlowStream() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeNode, setActiveNode] = useState("");
   const [rawThoughts, setRawThoughts] = useState("");
   const [analysisData, setAnalysisData] = useState(null);
   const [error, setError] = useState("");
+  const [completedSteps, setCompletedSteps] = useState(0);
   const controllerRef = useRef(null);
+  const completedNodesRef = useRef(new Set());
 
   const backendBaseUrl = useMemo(
-    () => (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000").replace(/\/$/, ""),
+    () => (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, ""),
     []
   );
 
@@ -38,7 +75,13 @@ export function useStoryFlowStream() {
       const node = payload?.node || "";
       const status = payload?.status || "";
       if (node) {
-        setActiveNode(status === "completed" ? `${node} (done)` : node);
+        if (status === "completed") {
+          completedNodesRef.current.add(node);
+          setCompletedSteps(completedNodesRef.current.size);
+          setActiveNode(friendlyLabel(node) ? `${friendlyLabel(node)}` : node);
+        } else {
+          setActiveNode(friendlyLabel(node) || node);
+        }
       }
       return;
     }
@@ -47,7 +90,8 @@ export function useStoryFlowStream() {
       const node = payload?.node || "llm";
       const text = payload?.text || "";
       if (text) {
-        setRawThoughts((prev) => `${prev}[${node}] ${text}\n\n`);
+        const label = friendlyLabel(node) || node;
+        setRawThoughts((prev) => `${prev}[${label}] ${text}\n\n`);
       }
       return;
     }
@@ -57,6 +101,7 @@ export function useStoryFlowStream() {
       setError("");
       setIsStreaming(false);
       setActiveNode("");
+      setCompletedSteps(TOTAL_STEPS);
       return;
     }
 
@@ -102,6 +147,8 @@ export function useStoryFlowStream() {
     setRawThoughts("");
     setActiveNode("Starting analysis...");
     setIsStreaming(true);
+    setCompletedSteps(0);
+    completedNodesRef.current = new Set();
 
     try {
       const response = await fetch(
@@ -157,6 +204,8 @@ export function useStoryFlowStream() {
     rawThoughts,
     analysisData,
     error,
+    completedSteps,
+    totalSteps: TOTAL_STEPS,
     startStream,
     stopStream,
   };

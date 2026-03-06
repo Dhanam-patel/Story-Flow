@@ -128,12 +128,34 @@ export function normalizeAnalyzePayload(payload = {}) {
     })),
   };
 
+  // Preserve episode scripts from the backend (full narrative text, scene directions, etc.)
+  const rawScripts = payload?.episode_scripts || null;
+  const episode_scripts = rawScripts
+    ? {
+        scripts: Array.isArray(rawScripts.scripts)
+          ? rawScripts.scripts.map((s, i) => ({
+              episode_number: s?.episode_number ?? i + 1,
+              title: s?.title || `Episode ${s?.episode_number ?? i + 1}`,
+              script: s?.script || "",
+              word_count: s?.word_count ?? 0,
+              scene_directions: Array.isArray(s?.scene_directions)
+                ? s.scene_directions
+                : [],
+              continuity_notes: s?.continuity_notes || "",
+            }))
+          : [],
+        total_word_count: rawScripts.total_word_count ?? 0,
+        series_continuity_summary: rawScripts.series_continuity_summary || "",
+      }
+    : null;
+
   return {
     run_id: payload?.run_id,
     story_idea: payload?.story_idea,
     revisions_completed: payload?.revisions_completed,
     created_at: payload?.created_at,
     episode_plan,
+    episode_scripts,
     emotional_arc,
     retention_analysis,
     cliffhanger_analysis,

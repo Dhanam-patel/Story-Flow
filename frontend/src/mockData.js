@@ -117,6 +117,58 @@ export const mockAnalysisData = {
       },
     ],
   },
+  episode_scripts: {
+    scripts: [
+      {
+        episode_number: 1,
+        title: "The Origami Swan",
+        script:
+          "Rain hammers the cracked visor of a delivery helmet as a beat-up scooter weaves through traffic. The rider checks the app — another order, another three dollars. The noodles are lukewarm by the time they reach apartment 4B.\n\nThe door opens to a woman with hollow eyes. She takes the bag without a word, then presses a tip into the rider's glove. Not cash. Paper, folded into an intricate origami swan. The rider almost tosses it, but something about the woman's stare stops them cold.\n\nBack on the street, curiosity wins. Unfolded, the swan reveals a hand-written address on the other side of the city — a neighbourhood the rider has never delivered to. The ink is fresh. The handwriting is shaking.\n\nThe GPS pings. The scooter rolls to a stop outside a shuttered warehouse. And parked right next to the loading bay, under a single flickering streetlight, is an identical scooter — same dents, same faded stickers, same cracked mirror. The engine is still ticking with heat.",
+        word_count: 172,
+        scene_directions: [
+          "Open on extreme close-up of rain hitting helmet visor — vertical frame, moody blue-grey grade.",
+          "Quick-cut montage of delivery app notifications stacking up.",
+          "Slow zoom on the origami swan in the rider's palm — warm practical light.",
+          "Final shot: wide pull-back revealing the duplicate scooter. Hold 3 seconds in silence before cut to black.",
+        ],
+        continuity_notes:
+          "Establishes the rider's financial desperation and the mystery of apartment 4B. The duplicate scooter is the first supernatural/conspiracy hook that carries into Episode 2.",
+      },
+      {
+        episode_number: 2,
+        title: "The Burner Phone",
+        script:
+          "The duplicate scooter sits there like a mirror the rider never asked for. Same scratched paint. Same delivery box bolted to the back. The rider circles it, heart pounding, and pops open the storage compartment.\n\nInside: a cheap burner phone, already powered on. The screen glows with a single notification — an incoming call from an unlisted number. The rider answers. A synthesised voice crackles through static: \"Did you bring the noodles?\"\n\nThe line goes dead. Then the phone buzzes again — a photo this time. The rider's own apartment building, shot from across the street, timestamped twenty minutes ago. Someone has been watching.\n\nA shadow shifts on the rooftop above. The rider looks up just in time to see a heavy object hurtling down. It smashes into the duplicate scooter's seat, sending shards of plastic across the wet concrete. Inside the wreckage of a thrown delivery bag: a jacket. Stained, torn — and unmistakably belonging to someone the rider has not seen in over a year.",
+        word_count: 175,
+        scene_directions: [
+          "Match-cut from Episode 1's final frame — same angle, now the rider enters frame.",
+          "Insert shot of burner phone screen — the photo of the rider's apartment fills the vertical frame.",
+          "Rooftop shadow: shoot with long lens, rack focus from rider's face to silhouette above.",
+          "Impact shot in slow-motion: delivery bag exploding on the scooter seat, debris scattering.",
+        ],
+        continuity_notes:
+          "The jacket belonging to the missing sister bridges Episodes 1-2 and 2-3. The burner phone becomes a recurring prop — keep it visible in the rider's pocket from this point on.",
+      },
+      {
+        episode_number: 3,
+        title: "The Live Stream",
+        script:
+          "The jacket smells like damp concrete and old perfume — the same perfume the rider's sister wore the day she disappeared. There is no time to grieve. A door on the warehouse's second floor slams shut. The rider is already running.\n\nThe stairwell is pitch dark. Footsteps echo above — fast, deliberate. The rider bursts onto the rooftop expecting a confrontation, but finds only silence, a tripod, and a camera pointed at the street below.\n\nThe camera is live. A dark-web stream shows the rider's own face staring back, overlaid with scrolling comments in languages they cannot read. The viewer count is climbing — two hundred, five hundred, a thousand. The chat erupts as the rider reaches for the camera.\n\nThen a new message pins itself to the top of the feed, in English, in bold: \"Open the door on sub-level 2. Do it on camera. Or we delete her.\" The viewer count spikes past ten thousand. Somewhere below, a lock clicks open on its own.",
+        word_count: 178,
+        scene_directions: [
+          "Open on tight close-up of the jacket fabric — pull focus to reveal the rider's trembling hands.",
+          "Stairwell chase: handheld vertical POV, flashlight only, heavy breathing on audio.",
+          "Stream UI overlay: design a realistic dark-web chat interface composited onto the footage.",
+          "Final beat: the lock click is audio-only over a black screen. Hold 2 seconds, then smash-cut to the viewer count.",
+        ],
+        continuity_notes:
+          "The dark-web audience becomes the implicit antagonist going forward. The sub-level 2 door is the central mystery for the next episode arc.",
+      },
+    ],
+    total_word_count: 525,
+    series_continuity_summary:
+      "The three episodes escalate from personal mystery (origami clue) to external threat (surveillance) to psychological horror (live-streamed coercion). Each episode ends with a physical object that bridges into the next: swan -> jacket -> locked door.",
+  },
   optimization_report: {
     quality_scores: {
       pacing: 85,

@@ -10,9 +10,10 @@ Environment variables (via backend/.env):
 
 from __future__ import annotations
 
-import os
+import json
 
-import google.auth
+from google.auth import default as google_auth_default
+from google.auth.credentials import Credentials
 from google.oauth2 import service_account
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -29,11 +30,19 @@ def _get_credentials():
     GOOGLE_APPLICATION_CREDENTIALS, otherwise falls back to
     Application Default Credentials (ADC).
     """
-    sa_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if sa_path:
-        return service_account.Credentials.from_service_account_file(sa_path)
 
-    credentials, _ = google.auth.default()
+    _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+    credentials: Credentials | None = None
+
+    if settings.gcp_service_account_json:
+        info = json.loads(settings.gcp_service_account_json)
+        credentials = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=_SCOPES,
+        )
+    else:
+        credentials, _ = google_auth_default(scopes=_SCOPES)
+
     return credentials
 
 
