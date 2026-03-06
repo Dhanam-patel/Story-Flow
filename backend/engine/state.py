@@ -196,19 +196,82 @@ class CliffhangerAnalysis(BaseModel):
 # --- Optimization models ---
 
 
-# --- Input Classification (A0) ---
+# --- Input Classification (A0 — LLM-based) ---
 
 
 class InputClassification(BaseModel):
-    """Result of classifying the user's raw input."""
+    """LLM-based classification and initial assessment of the user's raw input."""
 
     classification: Literal["one-liner", "story"] = Field(
         description="Whether the input is a concise one-liner idea or a detailed story outline"
     )
-    preprocessed_input: str = Field(
-        description="The original input, lightly cleaned for downstream use"
+    confidence: int = Field(
+        description="Confidence in the classification (1-10)", ge=1, le=10
     )
-    word_count: int = Field(description="Word count of the original input")
+    preprocessed_input: str = Field(
+        description="The original input, lightly cleaned and normalised for downstream use"
+    )
+    reasoning: str = Field(
+        description="Brief explanation of why this classification was chosen"
+    )
+
+
+# --- Story Validation (A2 — combined into A0 file) ---
+
+
+class StoryValidation(BaseModel):
+    """Quality validation of the expanded story from A1."""
+
+    score: int = Field(
+        description="Overall quality score for the story description (1-10)", ge=1, le=10
+    )
+    passed: bool = Field(
+        description="Whether the story meets the quality threshold (score >= 8)"
+    )
+    coherence: int = Field(
+        description="How coherent and logical the story is (1-10)", ge=1, le=10
+    )
+    originality: int = Field(
+        description="How original and non-clichéd the story is (1-10)", ge=1, le=10
+    )
+    engagement: int = Field(
+        description="How engaging and compelling the story is (1-10)", ge=1, le=10
+    )
+    length_appropriate: bool = Field(
+        description="Whether the story length is within the 300-600 word target"
+    )
+    feedback: str = Field(
+        description="Specific feedback notes for improvement (populated when failed, empty when passed)"
+    )
+
+
+# --- Final Validation (A8) ---
+
+
+class FinalValidation(BaseModel):
+    """End-of-pipeline validation of all outputs from A4-A7."""
+
+    passed: bool = Field(
+        description="Whether all outputs meet quality thresholds (average score >= 7)"
+    )
+    average_score: float = Field(
+        description="Weighted average quality score across all analyses (1-10)"
+    )
+    script_quality_score: int = Field(
+        description="Quality score for the episode scripts (1-10)", ge=1, le=10
+    )
+    emotional_arc_score: int = Field(
+        description="Quality score for the emotional arc analysis (1-10)", ge=1, le=10
+    )
+    cliffhanger_score: int = Field(
+        description="Average cliffhanger strength across episodes (1-10)", ge=1, le=10
+    )
+    retention_score: int = Field(
+        description="Average retention score across episodes (1-10)", ge=1, le=10
+    )
+    replan_instructions: str = Field(
+        description="Targeted feedback for replanning if failed (e.g. 'Strengthen cliffhangers in episodes 3-5'); empty when passed"
+    )
 
 
 # --- Expanded Story (A1) ---
@@ -355,11 +418,15 @@ class EpisodeEngineState(TypedDict):
     # Input
     task: str  # The user's raw story idea
 
-    # A0 – Input Classifier
+    # A0 – Input Classifier (LLM-based)
     input_classification: InputClassification | None
 
     # A1 – Story Expander
     expanded_story: ExpandedStory | None
+
+    # A2 – Story Validator (lives in input_classifier.py)
+    story_validation: StoryValidation | None
+    story_validation_feedback: str  # accumulated feedback for A1 retries
 
     # A3 – Episode Planner
     episode_planner: EpisodePlanner | None
@@ -367,13 +434,23 @@ class EpisodeEngineState(TypedDict):
     # A4 – Episode Scripter
     episode_scripts: EpisodeScripts | None
 
-    # Node outputs (existing / shared with A5-A7)
+    # Node outputs (shared with A5-A7)
     episode_plan: EpisodePlan | None
     emotional_arc: EmotionalArc | None
     retention_analysis: RetentionAnalysis | None
     cliffhanger_analysis: CliffhangerAnalysis | None
+
+    # A8 – Final Validator
+    final_validation: FinalValidation | None
+    final_validation_feedback: str  # replan instructions for A3 retries
+
+    # Optimizer (recommendation-only, no loop)
     optimization_report: OptimizationReport | None
 
     # Loop control
     revision_number: int
     max_revisions: int
+    story_revision_number: int  # A1↔A2 loop counter
+    max_story_revisions: int
+    pipeline_revision_number: int  # A3→A8 loop counter
+    max_pipeline_revisions: int

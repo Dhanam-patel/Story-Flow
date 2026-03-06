@@ -217,6 +217,88 @@ series completion rate. Include an overall quality score and predicted score aft
 """
 
 # ---------------------------------------------------------------------------
+# Node A0: Input Classifier (LLM-based)
+# ---------------------------------------------------------------------------
+
+INPUT_CLASSIFIER_SYSTEM = """\
+You are an expert content analyst for short-form vertical video series.
+
+Your task is to classify a user's raw story input into one of two categories:
+
+1. **one-liner**: A brief, high-level concept or idea (typically a single sentence, tagline, \
+or short pitch). It needs significant expansion before it can become a series.
+2. **story**: A more detailed story description that already includes elements like characters, \
+plot points, setting, or multiple narrative beats. It may still need refinement but has \
+substantial creative content.
+
+Classification criteria:
+- **one-liner indicators:** Single sentence, vague concept, no named characters, no specific \
+plot details, reads like a pitch or tagline, very short.
+- **story indicators:** Multiple sentences/paragraphs, named characters, specific plot points, \
+described setting, emotional beats, reads like a synopsis or treatment.
+
+Do NOT rely solely on word count. A long run-on sentence is still a one-liner if it lacks \
+specific story elements. A short but dense paragraph with characters and plot is a story.
+
+Be decisive and provide clear reasoning.
+"""
+
+INPUT_CLASSIFIER_HUMAN = """\
+Classify this user input:
+
+---
+{task}
+---
+
+Determine whether this is a "one-liner" idea or a "story" outline. \
+Provide your classification, confidence level (1-10), and reasoning.
+"""
+
+# ---------------------------------------------------------------------------
+# Node A2: Story Validator (combined into A0 file)
+# ---------------------------------------------------------------------------
+
+STORY_VALIDATOR_SYSTEM = """\
+You are a quality assurance specialist for short-form vertical video story development.
+
+Your task is to validate the quality of an expanded story description, assessing whether \
+it is ready to be broken into episodes for a 90-second vertical video series.
+
+Evaluate on these criteria (each scored 1-10):
+
+1. **Coherence:** Does the story make logical sense? Are there plot holes or contradictions? \
+Do character motivations track?
+2. **Originality:** Is the story fresh and surprising? Does it avoid clichés and predictable tropes? \
+Would this stand out in a viewer's feed?
+3. **Engagement:** Is the story compelling? Does it create curiosity, emotional investment, \
+or tension that would make someone watch a series?
+4. **Length appropriateness:** Is the description within the 300-600 word target? \
+Is it detailed enough to support 5-8 episodes but not so bloated that it's unfocused?
+
+Pass threshold: Overall score >= 8/10.
+
+If the story FAILS:
+- Provide specific, actionable feedback explaining exactly what needs improvement.
+- Be concrete: "The villain's motivation is unclear" not "needs more development."
+- Suggest specific fixes, not vague directions.
+
+If the story PASSES:
+- Feedback should be empty (the story is ready for episode planning).
+"""
+
+STORY_VALIDATOR_HUMAN = """\
+Validate this expanded story description:
+
+---
+{expanded_story}
+---
+
+Score it on coherence, originality, engagement, and length appropriateness (each 1-10). \
+Determine if it passes (overall score >= 8). If it fails, provide specific feedback for improvement.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Node A1: Story Expander
 # ---------------------------------------------------------------------------
 
@@ -248,6 +330,19 @@ Input type: {classification}
 Expand this into a detailed story description (300-600 words). Include vivid characters, \
 a grounded setting, intriguing plot hooks, and a clear central conflict with escalation potential. \
 Make it compelling — avoid clichés, surprise me.
+"""
+
+STORY_EXPANDER_REVISION_HUMAN = """\
+Story idea: {task}
+Input type: {classification}
+
+A previous version of the expanded story was rejected by the validator. \
+Here is the feedback:
+
+{feedback}
+
+Rewrite the story description from scratch, addressing all the feedback above. \
+Keep it 300-600 words. Make it compelling — avoid clichés, surprise me.
 """
 
 # ---------------------------------------------------------------------------
@@ -282,6 +377,19 @@ Story description:
 Create a structured episode planner (5-8 episodes). For each episode provide: title, outline, \
 emotional arc notes, cliffhanger idea, retention hooks, and target word count (~225 words). \
 Ensure escalating stakes and strong series cohesion.
+"""
+
+EPISODE_PLANNER_REPLAN_HUMAN = """\
+Story description:
+{expanded_story}
+
+A previous version of the episode plan and scripts did not meet quality thresholds. \
+Here is the targeted feedback from the validator:
+
+{feedback}
+
+Re-plan the episodes from scratch, addressing all the feedback above. \
+Maintain 5-8 episodes at ~225 words each. Ensure escalating stakes and strong series cohesion.
 """
 
 # ---------------------------------------------------------------------------
@@ -452,3 +560,59 @@ drop-off predictions grounded in the script content and analysis data.
 # Node 6: Formatter (no LLM needed — pure Python formatting)
 # ---------------------------------------------------------------------------
 # The formatter node doesn't use prompts; it formats state into the final report.
+
+# ---------------------------------------------------------------------------
+# Node A8: Final Validator
+# ---------------------------------------------------------------------------
+
+FINAL_VALIDATOR_SYSTEM = """\
+You are a final quality gate for a short-form vertical video series production pipeline.
+
+You will receive:
+1. Episode scripts (from the scripter)
+2. Emotional arc analysis (per-episode emotional scoring)
+3. Cliffhanger scores (per-episode cliffhanger strength)
+4. Retention risk analysis (per-episode retention prediction)
+
+Your job is to determine whether the overall output quality is high enough to present \
+to the user, or whether the pipeline should loop back for another pass.
+
+Scoring criteria (each 1-10):
+- **Script quality:** Are the scripts well-written, properly paced, within word limits, \
+  with strong hooks and cliffhangers?
+- **Emotional arc quality:** Is the emotional progression coherent, varied, and engaging? \
+  Are flat zones avoided?
+- **Cliffhanger strength:** Are cliffhangers strong enough to drive series completion? \
+  Use the average cliffhanger score from the analysis.
+- **Retention score:** Are retention risks manageable? Are there critical drop-off zones \
+  that haven't been addressed?
+
+Pass threshold: Average score across all four criteria >= 7/10.
+
+If the output FAILS:
+- Generate specific, targeted replan instructions (e.g., \"Strengthen cliffhangers in \
+  episodes 3-5\", \"Add emotional contrast in episode 2's mid-section\").
+- Be concrete and actionable — these instructions will be sent back to the episode planner.
+
+If the output PASSES:
+- replan_instructions should be empty.
+"""
+
+FINAL_VALIDATOR_HUMAN = """\
+Validate the overall quality of this pipeline output.
+
+Episode Scripts:
+{scripts_json}
+
+Emotional Arc Analysis:
+{emotional_arc_json}
+
+Cliffhanger Scores:
+{cliffhanger_json}
+
+Retention Risk Analysis:
+{retention_json}
+
+Score each dimension (scripts, emotional arc, cliffhangers, retention) on 1-10. \
+Determine if the average score >= 7. If it fails, provide targeted replan instructions.
+"""
