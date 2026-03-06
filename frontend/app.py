@@ -12,19 +12,31 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 
 _NODE_LABELS: dict[str, str] = {
-    "story_decomposer": "Story Decomposer",
-    "emotional_arc": "Emotional Arc Analyzer",
-    "retention_risk": "Retention Risk Predictor",
-    "cliffhanger_scorer": "Cliffhanger Scorer",
+    "input_classifier": "Input Classifier",
+    "story_expander": "Story Expander",
+    "story_validator": "Story Validator",
+    "episode_planner": "Episode Planner",
+    "episode_scripter": "Episode Scripter",
+    "emotional_arc_scorer": "Emotional Arc Scorer",
+    "cliffhanger_strength_scorer": "Cliffhanger Strength Scorer",
+    "retention_risk_analyzer": "Retention Risk Analyzer",
+    "final_validator": "Final Validator",
     "optimizer": "Optimizer",
 }
 
-# Ordered list for progress calculation (5 nodes per revision pass).
+# Ordered list for progress calculation.
+# A5 (emotional_arc_scorer) and A6 (cliffhanger_strength_scorer) run in
+# parallel, but we still count them individually for progress purposes.
 _NODE_ORDER: list[str] = [
-    "story_decomposer",
-    "emotional_arc",
-    "retention_risk",
-    "cliffhanger_scorer",
+    "input_classifier",
+    "story_expander",
+    "story_validator",
+    "episode_planner",
+    "episode_scripter",
+    "emotional_arc_scorer",
+    "cliffhanger_strength_scorer",
+    "retention_risk_analyzer",
+    "final_validator",
     "optimizer",
 ]
 
@@ -50,8 +62,11 @@ def stream_analysis(
     url = f"{config.base_url.rstrip('/')}/episodic-intelligence/analyze/stream"
 
     max_revisions = payload.get("max_revisions", 2)
-    nodes_per_pass = len(_NODE_ORDER)
-    total_nodes = nodes_per_pass * max_revisions
+    # A0-A2 run once (3 nodes), A3-A8+optimizer (7 nodes) can loop up to
+    # max_revisions times via the A8 replan loop.
+    once_nodes = 3  # input_classifier, story_expander, story_validator
+    loop_nodes = 7  # episode_planner..optimizer
+    total_nodes = once_nodes + loop_nodes * max_revisions
 
     completed_count = 0
     current_revision = 1
@@ -105,8 +120,10 @@ def stream_analysis(
                             pct = min(completed_count / total_nodes, 1.0)
                             progress_bar.progress(pct)
 
-                            # Detect revision boundary (optimizer completed).
-                            if node == "optimizer":
+                            # Detect revision boundary: when final_validator
+                            # completes and triggers a replan, the next node
+                            # will be episode_planner again.
+                            if node == "final_validator":
                                 if current_revision < max_revisions:
                                     current_revision += 1
                                     st.write(
@@ -181,16 +198,15 @@ def stream_analysis(
 
 
 def render_episode_plan(data: dict[str, Any]) -> None:
-    st.subheader("Episode Arc")
-    plan = data.get("episode_plan", {})
+    st.subheader("Episode Plan")
+    plan = data.get("episode_planner", {})
     if not plan:
         st.info("No episode plan data.")
         return
 
     # Series-level info
     st.markdown(
-        f"**Theme:** {plan.get('overall_theme', 'N/A')}  \n"
-        f"**Narrative Arc:** {plan.get('narrative_arc_type', 'N/A')}  \n"
+        f"**Narrative Arc:** {plan.get('overall_narrative_arc', 'N/A')}  \n"
         f"**Target Audience:** {plan.get('target_audience', 'N/A')}  \n"
         f"**Total Episodes:** {plan.get('total_episodes', 'N/A')}"
     )
@@ -199,16 +215,13 @@ def render_episode_plan(data: dict[str, Any]) -> None:
         with st.expander(
             f"Episode {ep['episode_number']}: {ep['title']}", expanded=False
         ):
-            st.write(f"**Hook:** {ep['hook']}")
-            st.write(f"**Core Conflict:** {ep['core_conflict']}")
-            st.write("**Key Beats:**")
-            for beat in ep.get("key_beats", []):
-                st.write(f"- {beat}")
-            st.write(f"**Cliffhanger:** {ep['cliffhanger']}")
-            st.write(f"**Summary:** {ep['summary']}")
-            st.caption(
-                f"Estimated duration: {ep.get('estimated_duration_seconds', 90)}s"
-            )
+            st.write(f"**Outline:** {ep['outline']}")
+            st.write(f"**Emotional Arc Notes:** {ep['emotional_arc_notes']}")
+            st.write(f"**Cliffhanger Idea:** {ep['cliffhanger_idea']}")
+            st.write("**Retention Hooks:**")
+            for hook in ep.get("retention_hooks", []):
+                st.write(f"- {hook}")
+            st.caption(f"Target word count: {ep.get('estimated_word_count', 225)}")
 
 
 def render_emotion_progression(data: dict[str, Any]) -> None:

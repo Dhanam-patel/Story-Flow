@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from engine.state import (
     CliffhangerAnalysis,
     EmotionalArc,
-    EpisodePlan,
+    EpisodePlanner,
     OptimizationReport,
     RetentionAnalysis,
 )
@@ -58,7 +58,7 @@ class AnalyzeResponse(BaseModel):
     run_id: uuid.UUID = Field(description="Unique identifier for this analysis run")
     story_idea: str
     revisions_completed: int
-    episode_plan: EpisodePlan
+    episode_planner: EpisodePlanner
     emotional_arc: EmotionalArc
     retention_analysis: RetentionAnalysis
     cliffhanger_analysis: CliffhangerAnalysis

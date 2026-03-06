@@ -45,7 +45,7 @@ def _build_initial_state(request: AnalyzeRequest) -> dict:
     """Build the initial LangGraph state dict from a request."""
     return {
         "task": _build_task_string(request),
-        "episode_plan": None,
+        "episode_planner": None,
         "emotional_arc": None,
         "retention_analysis": None,
         "cliffhanger_analysis": None,
@@ -74,7 +74,7 @@ def _build_response(
             run_id=run_id,
             story_idea=request.story_idea,
             revisions_completed=final_state.get("revision_number", 2) - 1,
-            episode_plan=final_state["episode_plan"],
+            episode_planner=final_state["episode_planner"],
             emotional_arc=final_state["emotional_arc"],
             retention_analysis=final_state["retention_analysis"],
             cliffhanger_analysis=final_state["cliffhanger_analysis"],
@@ -144,7 +144,7 @@ def analyze_story(
         )
 
     # Extract structured results from the final state.
-    episode_plan = final_state.get("episode_plan")
+    episode_planner = final_state.get("episode_planner")
     emotional_arc = final_state.get("emotional_arc")
     retention_analysis = final_state.get("retention_analysis")
     cliffhanger_analysis = final_state.get("cliffhanger_analysis")
@@ -152,7 +152,7 @@ def analyze_story(
 
     if not all(
         [
-            episode_plan,
+            episode_planner,
             emotional_arc,
             retention_analysis,
             cliffhanger_analysis,
@@ -315,7 +315,7 @@ async def analyze_story_stream(
 
         # Validate completeness.
         required_keys = [
-            "episode_plan",
+            "episode_planner",
             "emotional_arc",
             "retention_analysis",
             "cliffhanger_analysis",
