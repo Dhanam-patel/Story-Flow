@@ -196,6 +196,181 @@ class CliffhangerAnalysis(BaseModel):
 # --- Optimization models ---
 
 
+# --- Input Classification (A0 — LLM-based) ---
+
+
+class InputClassification(BaseModel):
+    """LLM-based classification and initial assessment of the user's raw input."""
+
+    classification: Literal["one-liner", "story"] = Field(
+        description="Whether the input is a concise one-liner idea or a detailed story outline"
+    )
+    confidence: int = Field(
+        description="Confidence in the classification (1-10)", ge=1, le=10
+    )
+    preprocessed_input: str = Field(
+        description="The original input, lightly cleaned and normalised for downstream use"
+    )
+    reasoning: str = Field(
+        description="Brief explanation of why this classification was chosen"
+    )
+
+
+# --- Story Validation (A2 — combined into A0 file) ---
+
+
+class StoryValidation(BaseModel):
+    """Quality validation of the expanded story from A1."""
+
+    score: int = Field(
+        description="Overall quality score for the story description (1-10)", ge=1, le=10
+    )
+    passed: bool = Field(
+        description="Whether the story meets the quality threshold (score >= 8)"
+    )
+    coherence: int = Field(
+        description="How coherent and logical the story is (1-10)", ge=1, le=10
+    )
+    originality: int = Field(
+        description="How original and non-clichéd the story is (1-10)", ge=1, le=10
+    )
+    engagement: int = Field(
+        description="How engaging and compelling the story is (1-10)", ge=1, le=10
+    )
+    length_appropriate: bool = Field(
+        description="Whether the story length is within the 300-600 word target"
+    )
+    feedback: str = Field(
+        description="Specific feedback notes for improvement (populated when failed, empty when passed)"
+    )
+
+
+# --- Final Validation (A8) ---
+
+
+class FinalValidation(BaseModel):
+    """End-of-pipeline validation of all outputs from A4-A7."""
+
+    passed: bool = Field(
+        description="Whether all outputs meet quality thresholds (average score >= 7)"
+    )
+    average_score: float = Field(
+        description="Weighted average quality score across all analyses (1-10)"
+    )
+    script_quality_score: int = Field(
+        description="Quality score for the episode scripts (1-10)", ge=1, le=10
+    )
+    emotional_arc_score: int = Field(
+        description="Quality score for the emotional arc analysis (1-10)", ge=1, le=10
+    )
+    cliffhanger_score: int = Field(
+        description="Average cliffhanger strength across episodes (1-10)", ge=1, le=10
+    )
+    retention_score: int = Field(
+        description="Average retention score across episodes (1-10)", ge=1, le=10
+    )
+    replan_instructions: str = Field(
+        description="Targeted feedback for replanning if failed (e.g. 'Strengthen cliffhangers in episodes 3-5'); empty when passed"
+    )
+
+
+# --- Expanded Story (A1) ---
+
+
+class ExpandedStory(BaseModel):
+    """A detailed story description expanded from user input."""
+
+    title: str = Field(description="A compelling working title for the story")
+    characters: list[str] = Field(
+        description="Key characters with brief descriptors (e.g. 'Mira — a reclusive hacker')"
+    )
+    setting: str = Field(
+        description="The world, time period, and atmosphere of the story"
+    )
+    plot_hooks: list[str] = Field(
+        description="3-5 intriguing plot hooks that drive viewer curiosity"
+    )
+    expanded_description: str = Field(
+        description="The full expanded story description (300-600 words) in semi-narrative form"
+    )
+
+
+# --- Episode Planner (A3) ---
+
+
+class PlannedEpisode(BaseModel):
+    """A single episode entry in the episode planner."""
+
+    episode_number: int = Field(description="Episode number (1-based)")
+    title: str = Field(description="Short, punchy episode title")
+    outline: str = Field(
+        description="Concise outline of what happens in this episode"
+    )
+    emotional_arc_notes: str = Field(
+        description="Expected emotional trajectory within this episode"
+    )
+    cliffhanger_idea: str = Field(
+        description="The planned cliffhanger or hook for the episode ending"
+    )
+    retention_hooks: list[str] = Field(
+        description="Specific moments designed to keep viewers watching"
+    )
+    estimated_word_count: int = Field(
+        default=225,
+        description="Target script word count for ~90 seconds of content",
+    )
+
+
+class EpisodePlanner(BaseModel):
+    """Full episode planner for the story."""
+
+    total_episodes: int = Field(description="Total number of episodes (5-8)")
+    overall_narrative_arc: str = Field(
+        description="The overarching narrative arc type and description"
+    )
+    target_audience: str = Field(description="Intended audience for this content")
+    episodes: list[PlannedEpisode] = Field(
+        description="The ordered list of planned episodes"
+    )
+
+
+# --- Episode Scripts (A4) ---
+
+
+class EpisodeScript(BaseModel):
+    """A single episode script."""
+
+    episode_number: int = Field(description="Episode number (1-based)")
+    title: str = Field(description="Episode title")
+    script: str = Field(
+        description="The full episode script text (~225 words for 90 seconds)"
+    )
+    word_count: int = Field(description="Actual word count of the script")
+    scene_directions: list[str] = Field(
+        description="Visual/camera directions for vertical video format (close-ups, transitions, etc.)"
+    )
+    continuity_notes: str = Field(
+        description="Notes on how this episode connects to the previous and next episodes"
+    )
+
+
+class EpisodeScripts(BaseModel):
+    """Collection of all episode scripts."""
+
+    scripts: list[EpisodeScript] = Field(
+        description="The ordered list of episode scripts"
+    )
+    total_word_count: int = Field(
+        description="Combined word count across all scripts"
+    )
+    series_continuity_summary: str = Field(
+        description="Brief summary of how episodes flow together narratively"
+    )
+
+
+# --- Optimization models ---
+
+
 class Suggestion(BaseModel):
     """A single optimization suggestion."""
 
@@ -243,13 +418,39 @@ class EpisodeEngineState(TypedDict):
     # Input
     task: str  # The user's raw story idea
 
-    # Node outputs
+    # A0 – Input Classifier (LLM-based)
+    input_classification: InputClassification | None
+
+    # A1 – Story Expander
+    expanded_story: ExpandedStory | None
+
+    # A2 – Story Validator (lives in input_classifier.py)
+    story_validation: StoryValidation | None
+    story_validation_feedback: str  # accumulated feedback for A1 retries
+
+    # A3 – Episode Planner
+    episode_planner: EpisodePlanner | None
+
+    # A4 – Episode Scripter
+    episode_scripts: EpisodeScripts | None
+
+    # Node outputs (shared with A5-A7)
     episode_plan: EpisodePlan | None
     emotional_arc: EmotionalArc | None
     retention_analysis: RetentionAnalysis | None
     cliffhanger_analysis: CliffhangerAnalysis | None
+
+    # A8 – Final Validator
+    final_validation: FinalValidation | None
+    final_validation_feedback: str  # replan instructions for A3 retries
+
+    # Optimizer (recommendation-only, no loop)
     optimization_report: OptimizationReport | None
 
     # Loop control
     revision_number: int
     max_revisions: int
+    story_revision_number: int  # A1↔A2 loop counter
+    max_story_revisions: int
+    pipeline_revision_number: int  # A3→A8 loop counter
+    max_pipeline_revisions: int
