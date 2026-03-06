@@ -197,6 +197,31 @@ def stream_analysis(
 # ---------------------------------------------------------------------------
 
 
+def render_story(data: dict[str, Any]) -> None:
+    """Render the final episodic story — clean narrative text only."""
+    st.subheader("The Story")
+    scripts_data = data.get("episode_scripts", {})
+    if not scripts_data:
+        st.info("No story data available.")
+        return
+
+    scripts = sorted(
+        scripts_data.get("scripts", []),
+        key=lambda s: s["episode_number"],
+    )
+    if not scripts:
+        st.info("No story data available.")
+        return
+
+    for i, s in enumerate(scripts):
+        ep_num = s["episode_number"]
+        title = s.get("title", f"Episode {ep_num}")
+        st.markdown(f"#### Episode {ep_num}: {title}")
+        st.markdown(s["script"])
+        if i < len(scripts) - 1:
+            st.divider()
+
+
 def render_episode_plan(data: dict[str, Any]) -> None:
     st.subheader("Episode Plan")
     plan = data.get("episode_planner", {})
@@ -224,12 +249,12 @@ def render_episode_plan(data: dict[str, Any]) -> None:
             st.caption(f"Target word count: {ep.get('estimated_word_count', 225)}")
 
 
-def render_full_story(data: dict[str, Any]) -> None:
-    """Render all episode scripts stitched into one continuous flowing narrative."""
-    st.subheader("Full Story")
+def render_episode_scripts(data: dict[str, Any]) -> None:
+    """Render episode scripts individually, each in its own expander."""
+    st.subheader("Episode Scripts")
     scripts_data = data.get("episode_scripts", {})
     if not scripts_data:
-        st.info("No story data available.")
+        st.info("No script data available.")
         return
 
     scripts = sorted(
@@ -237,12 +262,32 @@ def render_full_story(data: dict[str, Any]) -> None:
         key=lambda s: s["episode_number"],
     )
     if not scripts:
-        st.info("No story data available.")
+        st.info("No script data available.")
         return
 
-    full_text = "\n\n".join(s["script"] for s in scripts)
-    st.markdown(full_text)
-    st.caption(f"Total words: {scripts_data.get('total_word_count', 'N/A')}")
+    for s in scripts:
+        ep_num = s["episode_number"]
+        title = s.get("title", f"Episode {ep_num}")
+        word_count = s.get("word_count", "N/A")
+        with st.expander(
+            f"Episode {ep_num}: {title} ({word_count} words)", expanded=False
+        ):
+            st.markdown(s["script"])
+
+            directions = s.get("scene_directions", [])
+            if directions:
+                st.markdown("**Scene Directions:**")
+                for d in directions:
+                    st.write(f"- {d}")
+
+            notes = s.get("continuity_notes", "")
+            if notes:
+                st.caption(f"Continuity: {notes}")
+
+    st.caption(
+        f"Total words: {scripts_data.get('total_word_count', 'N/A')} | "
+        f"Continuity: {scripts_data.get('series_continuity_summary', 'N/A')}"
+    )
 
 
 def render_emotion_progression(data: dict[str, Any]) -> None:
@@ -489,9 +534,10 @@ def main() -> None:
 
     st.success(f"Analysis complete. Run ID: {response.get('run_id', 'n/a')}")
 
+    render_story(response)
     render_engagement_summary(response)
     render_episode_plan(response)
-    render_full_story(response)
+    render_episode_scripts(response)
     render_emotion_progression(response)
     render_cliffhanger_scores(response)
     render_retention_risk(response)

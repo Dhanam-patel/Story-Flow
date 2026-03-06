@@ -50,8 +50,11 @@ def _build_initial_state(request: AnalyzeRequest) -> dict:
         "retention_analysis": None,
         "cliffhanger_analysis": None,
         "optimization_report": None,
-        "revision_number": 1,
-        "max_revisions": request.max_revisions,
+        # Loop controls — wire the user's max_revisions to both loops
+        "story_revision_number": 1,
+        "max_story_revisions": request.max_revisions,
+        "pipeline_revision_number": 1,
+        "max_pipeline_revisions": request.max_revisions,
     }
 
 
@@ -73,7 +76,7 @@ def _build_response(
         AnalyzeResponse(
             run_id=run_id,
             story_idea=request.story_idea,
-            revisions_completed=final_state.get("revision_number", 2) - 1,
+            revisions_completed=final_state.get("pipeline_revision_number", 1) - 1,
             episode_planner=final_state["episode_planner"],
             episode_scripts=final_state["episode_scripts"],
             emotional_arc=final_state["emotional_arc"],

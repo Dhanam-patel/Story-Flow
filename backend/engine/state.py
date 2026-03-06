@@ -12,43 +12,6 @@ from typing_extensions import TypedDict
 # ---------------------------------------------------------------------------
 
 
-class Episode(BaseModel):
-    """A single episode in the multi-part story arc."""
-
-    episode_number: int = Field(description="Episode number (1-based)")
-    title: str = Field(description="Short, punchy episode title")
-    hook: str = Field(
-        description="Opening hook for the first 3 seconds to grab attention"
-    )
-    core_conflict: str = Field(
-        description="The central tension or conflict within this episode"
-    )
-    key_beats: list[str] = Field(
-        description="3-5 key story beats that happen in this 90-second episode"
-    )
-    cliffhanger: str = Field(
-        description="The cliffhanger ending that compels viewers to watch the next episode"
-    )
-    estimated_duration_seconds: int = Field(
-        default=90, description="Target duration in seconds (should be ~90)"
-    )
-    summary: str = Field(
-        description="One-paragraph summary of the full episode content"
-    )
-
-
-class EpisodePlan(BaseModel):
-    """Complete episode breakdown for the story idea."""
-
-    overall_theme: str = Field(description="The overarching theme of the story")
-    narrative_arc_type: str = Field(
-        description="Type of narrative arc (e.g. Hero's Journey, Mystery/Reveal, Redemption, Survival, etc.)"
-    )
-    target_audience: str = Field(description="Intended audience for this content")
-    total_episodes: int = Field(description="Total number of episodes (5-8)")
-    episodes: list[Episode] = Field(description="The ordered list of episodes")
-
-
 # --- Emotional Arc models ---
 
 
@@ -221,7 +184,9 @@ class StoryValidation(BaseModel):
     """Quality validation of the expanded story from A1."""
 
     score: int = Field(
-        description="Overall quality score for the story description (1-10)", ge=1, le=10
+        description="Overall quality score for the story description (1-10)",
+        ge=1,
+        le=10,
     )
     passed: bool = Field(
         description="Whether the story meets the quality threshold (score >= 8)"
@@ -301,9 +266,7 @@ class PlannedEpisode(BaseModel):
 
     episode_number: int = Field(description="Episode number (1-based)")
     title: str = Field(description="Short, punchy episode title")
-    outline: str = Field(
-        description="Concise outline of what happens in this episode"
-    )
+    outline: str = Field(description="Concise outline of what happens in this episode")
     emotional_arc_notes: str = Field(
         description="Expected emotional trajectory within this episode"
     )
@@ -341,7 +304,7 @@ class EpisodeScript(BaseModel):
     episode_number: int = Field(description="Episode number (1-based)")
     title: str = Field(description="Episode title")
     script: str = Field(
-        description="The full episode script text (~225 words for 90 seconds)"
+        description="The full episode narrative voiceover script (~225 words for 90 seconds). Third-person narration, no direct dialogue."
     )
     word_count: int = Field(description="Actual word count of the script")
     scene_directions: list[str] = Field(
@@ -358,9 +321,7 @@ class EpisodeScripts(BaseModel):
     scripts: list[EpisodeScript] = Field(
         description="The ordered list of episode scripts"
     )
-    total_word_count: int = Field(
-        description="Combined word count across all scripts"
-    )
+    total_word_count: int = Field(description="Combined word count across all scripts")
     series_continuity_summary: str = Field(
         description="Brief summary of how episodes flow together narratively"
     )
@@ -432,8 +393,7 @@ class EpisodeEngineState(TypedDict):
     # A4 – Episode Scripter
     episode_scripts: EpisodeScripts | None
 
-    # Node outputs (shared with A5-A7)
-    episode_plan: EpisodePlan | None
+    # A5-A7 analysis outputs
     emotional_arc: EmotionalArc | None
     retention_analysis: RetentionAnalysis | None
     cliffhanger_analysis: CliffhangerAnalysis | None
@@ -446,8 +406,6 @@ class EpisodeEngineState(TypedDict):
     optimization_report: OptimizationReport | None
 
     # Loop control
-    revision_number: int
-    max_revisions: int
     story_revision_number: int  # A1↔A2 loop counter
     max_story_revisions: int
     pipeline_revision_number: int  # A3→A8 loop counter

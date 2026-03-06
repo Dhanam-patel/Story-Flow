@@ -8,11 +8,11 @@ help: ## Show this help
 backend-install: ## Install backend dependencies
 	cd backend && uv sync
 
-backend-run: ## Run backend server
-	cd backend && uv run python main.py
+backend-run: ## Run backend server (production)
+	cd backend && uv run fastapi run main.py --host 0.0.0.0 --port 8000
 
-backend-dev: ## Run backend server with reload
-	cd backend && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+backend-dev: ## Run backend server with reload (development)
+	cd backend && uv run fastapi dev main.py --host 0.0.0.0 --port 8000
 
 backend-migrate: ## Run alembic migrations
 	cd backend && uv run alembic upgrade head

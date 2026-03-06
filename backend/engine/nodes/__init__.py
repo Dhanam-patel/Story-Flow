@@ -1,12 +1,6 @@
 """LangGraph nodes for the Episodic Intelligence Engine pipeline."""
 
-# from engine.nodes.story_decomposer import story_decomposer_node
-# from engine.nodes.emotional_arc import emotional_arc_node
-# from engine.nodes.retention_risk import retention_risk_node
-# from engine.nodes.cliffhanger_scorer import cliffhanger_scorer_node
 from engine.nodes.optimizer import optimizer_node
-
-# --- New pipeline nodes (A0–A8) ---
 from engine.nodes.input_classifier import input_classifier_node, story_validator_node
 from engine.nodes.story_expander import story_expander_node
 from engine.nodes.episode_planner import episode_planner_node
@@ -17,9 +11,7 @@ from engine.nodes.retention_risk_analyzer import retention_risk_analyzer_node
 from engine.nodes.final_validator import final_validator_node
 
 __all__ = [
-    # Existing nodes
     "optimizer_node",
-    # New nodes (A0–A8)
     "input_classifier_node",
     "story_validator_node",
     "story_expander_node",

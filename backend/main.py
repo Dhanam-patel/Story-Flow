@@ -1,9 +1,9 @@
 """FastAPI application entry point.
 
 Start the server:
-    uv run python main.py
-    # or
-    uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    uv run fastapi dev main.py
+    # or for production:
+    uv run fastapi run main.py --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -50,13 +49,3 @@ app.include_router(analyze_router)
 def health_check() -> dict[str, str]:
     """Simple liveness probe."""
     return {"status": "ok"}
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info",
-    )
