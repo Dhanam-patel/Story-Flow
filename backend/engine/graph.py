@@ -1,18 +1,38 @@
 """LangGraph graph builder for the Episodic Intelligence Engine.
 
-Topology (parallel fan-out for analysis nodes):
+New topology (A0–A8 pipeline with two conditional loops):
 
-                        ┌─> emotional_arc ──────┐
-    START -> story_decomposer ──┼─> retention_risk ──────┼──> optimizer -> [should_continue]
-                        └─> cliffhanger_scorer ─┘           |
-                                                  +---------+----------+
-                                                  |                    |
-                                           story_decomposer          END
-                                           (re-optimize)            (done)
+    START ─> A0 (input_classifier)
+              │
+              ▼
+         A1 (story_expander) ◄──────────────────┐
+              │                                  │ (fail: score < 8)
+              ▼                                  │
+         A2 (story_validator) ──[should_retry_story]
+              │ (pass: score >= 8)
+              ▼
+    ┌─> A3 (episode_planner) ◄──────────────────────────────┐
+    │         │                                              │
+    │         ▼                                              │
+    │    A4 (episode_scripter)                               │
+    │         │                                              │
+    │         ├──> A5 (emotional_arc_scorer) ──┐             │
+    │         └──> A6 (cliffhanger_scorer) ────┤             │
+    │                                          ▼             │
+    │                              A7 (retention_risk) ──────┤
+    │                                          │             │
+    │                                          ▼             │
+    │                              A8 (final_validator) ─[should_replan]
+    │                                          │ (pass)      │ (fail)
+    │                                          ▼             │
+    │                                   optimizer ──> END    │
+    │                                                        │
+    └────────────────────────────────────────────────────────┘
 
-The three analysis nodes (emotional_arc, retention_risk, cliffhanger_scorer)
-run in parallel within the same LangGraph superstep, cutting wall-clock time
-from ~4.5 min (sequential) to ~1.5 min (parallel) per pass.
+- A5 and A6 run in parallel (fan-out from A4, fan-in to A7).
+- A1⇄A2 loop: retries story expansion up to max_story_revisions.
+- A3→A8 loop: retries the full script pipeline up to max_pipeline_revisions.
+- Optimizer is advisory-only (no feedback loop), runs after A8 passes.
 """
 
 from __future__ import annotations
@@ -23,26 +43,68 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from engine.nodes.cliffhanger_scorer import cliffhanger_scorer_node
-from engine.nodes.emotional_arc import emotional_arc_node
+from engine.nodes.cliffhanger_strength_scorer import cliffhanger_strength_scorer_node
+from engine.nodes.emotional_arc_scorer import emotional_arc_scorer_node
+from engine.nodes.episode_planner import episode_planner_node
+from engine.nodes.episode_scripter import episode_scripter_node
+from engine.nodes.final_validator import final_validator_node
+from engine.nodes.input_classifier import input_classifier_node, story_validator_node
 from engine.nodes.optimizer import optimizer_node
-from engine.nodes.retention_risk import retention_risk_node
-from engine.nodes.story_decomposer import story_decomposer_node
+from engine.nodes.retention_risk_analyzer import retention_risk_analyzer_node
+from engine.nodes.story_expander import story_expander_node
 from engine.state import EpisodeEngineState
 
 
-def _should_continue(
-    state: EpisodeEngineState,
-) -> Literal["story_decomposer", "__end__"]:
-    """Decide whether to loop back for another revision or finish.
+# ---------------------------------------------------------------------------
+# Conditional edge functions
+# ---------------------------------------------------------------------------
 
-    The loop exits when revision_number exceeds max_revisions.
-    Since story_decomposer increments revision_number, by the time we
-    reach this check, revision_number is already at (pass_count + 1).
+
+def _should_retry_story(
+    state: EpisodeEngineState,
+) -> Literal["story_expander", "episode_planner"]:
+    """After A2 (story_validator): loop back to A1 or proceed to A3.
+
+    Passes when the story validation score >= 8 OR the maximum number of
+    story revisions has been reached.
     """
-    if state.get("revision_number", 1) > state.get("max_revisions", 2):
-        return "__end__"
-    return "story_decomposer"
+    validation = state.get("story_validation")
+    if validation is not None and validation.passed:
+        return "episode_planner"
+
+    revision = state.get("story_revision_number", 1)
+    max_revisions = state.get("max_story_revisions", 3)
+    if revision > max_revisions:
+        # Exhausted retries — proceed with the best version we have
+        return "episode_planner"
+
+    return "story_expander"
+
+
+def _should_replan(
+    state: EpisodeEngineState,
+) -> Literal["episode_planner", "optimizer"]:
+    """After A8 (final_validator): loop back to A3 or proceed to optimizer.
+
+    Passes when the final validation average >= 7 OR the maximum number of
+    pipeline revisions has been reached.
+    """
+    validation = state.get("final_validation")
+    if validation is not None and validation.passed:
+        return "optimizer"
+
+    revision = state.get("pipeline_revision_number", 1)
+    max_revisions = state.get("max_pipeline_revisions", 3)
+    if revision > max_revisions:
+        # Exhausted retries — proceed with the best version we have
+        return "optimizer"
+
+    return "episode_planner"
+
+
+# ---------------------------------------------------------------------------
+# Graph builder
+# ---------------------------------------------------------------------------
 
 
 def build_graph(checkpointer: InMemorySaver | None = None) -> CompiledStateGraph:
@@ -60,35 +122,63 @@ def build_graph(checkpointer: InMemorySaver | None = None) -> CompiledStateGraph
 
     builder = StateGraph(EpisodeEngineState)
 
-    # --- Register nodes ---
-    builder.add_node("story_decomposer", story_decomposer_node)
-    builder.add_node("emotional_arc", emotional_arc_node)
-    builder.add_node("retention_risk", retention_risk_node)
-    builder.add_node("cliffhanger_scorer", cliffhanger_scorer_node)
-    builder.add_node("optimizer", optimizer_node)
+    # --- Register all nodes ---
+    builder.add_node("input_classifier", input_classifier_node)       # A0
+    builder.add_node("story_expander", story_expander_node)           # A1
+    builder.add_node("story_validator", story_validator_node)         # A2
+    builder.add_node("episode_planner", episode_planner_node)         # A3
+    builder.add_node("episode_scripter", episode_scripter_node)       # A4
+    builder.add_node("emotional_arc_scorer", emotional_arc_scorer_node)           # A5
+    builder.add_node("cliffhanger_strength_scorer", cliffhanger_strength_scorer_node)  # A6
+    builder.add_node("retention_risk_analyzer", retention_risk_analyzer_node)      # A7
+    builder.add_node("final_validator", final_validator_node)         # A8
+    builder.add_node("optimizer", optimizer_node)                     # Recommendations
 
-    # --- Entry edge ---
-    builder.add_edge(START, "story_decomposer")
+    # --- Entry ---
+    builder.add_edge(START, "input_classifier")
 
-    # --- Parallel fan-out: story_decomposer -> 3 analysis nodes ---
-    builder.add_edge("story_decomposer", "emotional_arc")
-    builder.add_edge("story_decomposer", "retention_risk")
-    builder.add_edge("story_decomposer", "cliffhanger_scorer")
+    # --- A0 -> A1 ---
+    builder.add_edge("input_classifier", "story_expander")
 
-    # --- Parallel fan-in: 3 analysis nodes -> optimizer ---
-    builder.add_edge("emotional_arc", "optimizer")
-    builder.add_edge("retention_risk", "optimizer")
-    builder.add_edge("cliffhanger_scorer", "optimizer")
+    # --- A1 -> A2 ---
+    builder.add_edge("story_expander", "story_validator")
 
-    # --- Conditional edge (optimization loop or end) ---
+    # --- A2 -> conditional: A1 (retry) or A3 (proceed) ---
     builder.add_conditional_edges(
-        "optimizer",
-        _should_continue,
+        "story_validator",
+        _should_retry_story,
         {
-            "story_decomposer": "story_decomposer",
-            "__end__": END,
+            "story_expander": "story_expander",
+            "episode_planner": "episode_planner",
         },
     )
+
+    # --- A3 -> A4 ---
+    builder.add_edge("episode_planner", "episode_scripter")
+
+    # --- A4 -> parallel fan-out: A5 + A6 ---
+    builder.add_edge("episode_scripter", "emotional_arc_scorer")
+    builder.add_edge("episode_scripter", "cliffhanger_strength_scorer")
+
+    # --- Parallel fan-in: A5 + A6 -> A7 ---
+    builder.add_edge("emotional_arc_scorer", "retention_risk_analyzer")
+    builder.add_edge("cliffhanger_strength_scorer", "retention_risk_analyzer")
+
+    # --- A7 -> A8 ---
+    builder.add_edge("retention_risk_analyzer", "final_validator")
+
+    # --- A8 -> conditional: A3 (replan) or optimizer (pass) ---
+    builder.add_conditional_edges(
+        "final_validator",
+        _should_replan,
+        {
+            "episode_planner": "episode_planner",
+            "optimizer": "optimizer",
+        },
+    )
+
+    # --- Optimizer -> END ---
+    builder.add_edge("optimizer", END)
 
     # --- Compile ---
     graph = builder.compile(checkpointer=checkpointer)
