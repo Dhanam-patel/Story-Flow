@@ -1,4 +1,4 @@
-.PHONY: help backend-install backend-run backend-dev backend-migrate backend-migration backend-db frontend-install frontend-run docker-up docker-down
+.PHONY: help backend-install backend-run backend-dev backend-migrate backend-migration backend-db frontend-install frontend-run frontend-dev frontend-build docker-up docker-down docker-build
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -31,6 +31,12 @@ frontend-install: ## Install frontend dependencies
 frontend-run: ## Run Streamlit frontend
 	cd frontend && streamlit run app.py
 
+frontend-dev: ## Run React dev server (Vite, proxies API to backend)
+	cd frontend && npm run dev
+
+frontend-build: ## Build React frontend for production
+	cd frontend && npm run build
+
 # ── Docker ───────────────────────────────────────────────────
 
 docker-up: ## Start all docker services
@@ -38,3 +44,6 @@ docker-up: ## Start all docker services
 
 docker-down: ## Stop all docker services
 	cd backend && docker compose down
+
+docker-build: ## Build the full-stack Docker image
+	docker build -t story-flow .
