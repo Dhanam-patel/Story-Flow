@@ -30,6 +30,7 @@ def episode_planner_node(state: EpisodeEngineState) -> dict:
     """
     model = get_model().with_structured_output(EpisodePlanner)
 
+    task = state["task"]
     expanded_story = state["expanded_story"]
     story_text = expanded_story.model_dump_json(indent=2)
 
@@ -38,11 +39,15 @@ def episode_planner_node(state: EpisodeEngineState) -> dict:
 
     if feedback and revision > 1:
         human_content = EPISODE_PLANNER_REPLAN_HUMAN.format(
+            task=task,
             expanded_story=story_text,
             feedback=feedback,
         )
     else:
-        human_content = EPISODE_PLANNER_HUMAN.format(expanded_story=story_text)
+        human_content = EPISODE_PLANNER_HUMAN.format(
+            task=task,
+            expanded_story=story_text,
+        )
 
     messages = [
         SystemMessage(content=EPISODE_PLANNER_SYSTEM),

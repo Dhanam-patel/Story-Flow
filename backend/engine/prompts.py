@@ -275,15 +275,23 @@ Improve Quality: Draw from context for inspiration on mystery, deduction, and re
 """
 
 EPISODE_PLANNER_HUMAN = """\
+User instructions:
+{task}
+
 Story description:
 {expanded_story}
 
-Create a structured episode planner (5-8 episodes). For each episode provide: title, outline, \
-emotional arc notes, cliffhanger idea, retention hooks, and target word count (~225 words). \
+Create a structured episode planner strictly following the user's instructions above \
+(including preferred episode count, genre, tone, and target audience). \
+For each episode provide: title, outline, emotional arc notes, cliffhanger idea, \
+retention hooks, and target word count (~225 words). \
 Ensure escalating stakes and strong series cohesion.
 """
 
 EPISODE_PLANNER_REPLAN_HUMAN = """\
+User instructions:
+{task}
+
 Story description:
 {expanded_story}
 
@@ -293,7 +301,8 @@ Here is the targeted feedback from the validator:
 {feedback}
 
 Re-plan the episodes from scratch, addressing all the feedback above. \
-Maintain 5-8 episodes at ~225 words each. Ensure escalating stakes and strong series cohesion.
+Strictly follow the user's instructions above (including preferred episode count, genre, \
+tone, and target audience) at ~225 words each. Ensure escalating stakes and strong series cohesion.
 """
 
 # ---------------------------------------------------------------------------
